@@ -460,7 +460,7 @@ void unblocked(int fd, User &user) {
                 cout << "读取文件失败" << endl;
                 return;
             }
-             cout << "剩余文件大小: " << size << endl; 
+             //cout << "剩余文件大小: " << size << endl; 
             size -= n;
             sum += n;
             ofs.write(buf, n);
@@ -713,7 +713,7 @@ void sendFile_Group(int epfd, int fd) {
             cout << "读取文件失败" << endl;
             return;
         }
-            cout << "剩余文件大小: " << size << endl; 
+           // cout << "剩余文件大小: " << size << endl; 
         size -= n;
         sum += n;
         ofs.write(buf, n);
