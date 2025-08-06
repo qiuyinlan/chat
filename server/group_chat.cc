@@ -187,6 +187,7 @@ void GroupChat::startChat() {
     int ret;
     recvMsg(fd, group_info);
     
+    
     Group group;
     try {
         group.json_parse(group_info);
@@ -229,18 +230,6 @@ void GroupChat::startChat() {
             return;
         }
 
-        //处理群聊文件传输协议
-        if (msg == SENDFILE_G) {
-            cout << "[DEBUG] 群聊中收到 SENDFILE_G 协议" << endl;
-            sendFile_Group(fd, user);
-            continue;
-        }
-
-        if (msg == RECVFILE_G) {
-            cout << "[DEBUG] 群聊中收到 RECVFILE_G 协议" << endl;
-            recvFile_Group(fd, user);
-            continue;
-        }
 
         if (!redis.sismember(group.getMembers(), user.getUID())) {
 
@@ -337,10 +326,12 @@ string GroupChat::findGroupUidByName(Redis& redis, const string& groupName) {
 }
 
 void GroupChat::createGroup() {
+
     Redis redis;
     redis.connect();
     string group_info,groupName;
     int ret;
+
     while(true){
        ret = recvMsg(fd, groupName);  
        
@@ -366,6 +357,7 @@ void GroupChat::createGroup() {
     redis.sadd(created, group.getGroupUid());
     redis.sadd(group.getMembers(), user.getUID());
     redis.sadd(group.getAdmins(), user.getUID());
+      redis.hset("user_join_time", group.getGroupUid() + user.getUID(), user.get_time());
 
     //名字不重复
     redis.sadd("group_Name", groupName);
@@ -541,6 +533,8 @@ void GroupChat::remove(Group &group) const {//踢人
         sendMsg(fd, member_info);
         freeReplyObject(arr[i]);
     }
+
+
     string remove_info;
 
     recvMsg(fd, remove_info);

@@ -43,11 +43,11 @@ mutex ClientState::messageMutex;
 void unifiedMessageReceiver( string UID) {
     ClientState::myUID = UID;
 
-    // 创建独立的接收连接
+    
     int receiveFd = Socket();
     Connect(receiveFd, IP, PORT);
 
-    // 发送统一接收协议标识
+    // 统一接收协议
     sendMsg(receiveFd, UNIFIED_RECEIVER);
     sendMsg(receiveFd, UID);
 
@@ -55,7 +55,7 @@ void unifiedMessageReceiver( string UID) {
     
  
     while (true) {
-        //一直处于接收状态，收到——丢给处理函数去处理
+        //一直处于接收状态，收到——>丢给处理函数去处理
         int ret = recvMsg(receiveFd, receivedMsg);
         if (ret <= 0) {
             cout << "统一接收连接断开，退出消息接收线程" << endl;
@@ -162,7 +162,6 @@ void processUnifiedMessage(const string& msg) {
             // 格式：用户名(N条)
             notifyMsg = senderInfo + "消息";
         } else {
-            // 格式：用户名
             notifyMsg = senderInfo + "给你发来一条消息";
         }
 
@@ -184,19 +183,16 @@ void processUnifiedMessage(const string& msg) {
         try {
             Message message;
             message.json_parse(msg);
-
-            // 判断是私聊还是群聊
             if (message.getGroupName() == "1") {
-                // 私聊消息
+                // 私
                 if (ClientState::inChat && message.getUidFrom() == ClientState::currentChatUID) {
-                    // 当前私聊窗口的消息，直接显示
+                    // 当前私聊窗口
                     cout << message.getUsername() << ": " << message.getContent() << endl;
                 }
-                // 注意：不在当前聊天窗口的消息不在这里处理，由MESSAGE:通知处理
             } else {
-                // 群聊消息
+                // 群
                 if (ClientState::inChat && message.getUidTo() == ClientState::currentChatUID) {
-                    // 当前群聊窗口的消息，直接显示
+                    // 当前群聊窗口
                     cout << "[" << message.getGroupName() << "] "
                          << message.getUsername() << ": "
                          << message.getContent() << endl;
@@ -204,7 +200,7 @@ void processUnifiedMessage(const string& msg) {
                 // 注意：不在当前群聊窗口的消息不在这里处理，由MESSAGE:通知处理
             }
         } catch (const exception& e) {
-            // JSON解析失败，忽略
+            
             cout << "消息解析失败，跳过" << endl;
         }
     }
@@ -217,9 +213,8 @@ void heartbeat(string UID) {
 
     sendMsg(fd, "HEARTBEAT");
    
-    sendMsg(fd, UID);
     while (true) {
-        this_thread::sleep_for(chrono::seconds(10));  // 秒检测一次
+        this_thread::sleep_for(chrono::seconds(30));  // 秒检测一次
 
         // 发送心跳包
         if (sendMsg(fd, "HEARTBEAT") <= 0) {

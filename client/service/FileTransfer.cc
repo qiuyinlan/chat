@@ -162,6 +162,7 @@ void FileTransfer::recvFile_Friend(User& myUser) const {
     }
     if (num == 0) {
         cout << "当前没有要接收的文件" << endl;
+        close(fd);
         return;
     }
     cout << "你有" << num << "个文件待接收" << endl;
@@ -170,8 +171,7 @@ void FileTransfer::recvFile_Friend(User& myUser) const {
   
     recvMsg(fd, file_info);
     message.json_parse(file_info);
-    cout  << message.getUsername() << "的文件" << message.getGroupName() <<  "接收成功" <<endl;
-
+   
     string reply;
     recvMsg(fd, reply);
     if (reply == "FILE_NOT_FOUND") {
@@ -211,13 +211,10 @@ void FileTransfer::recvFile_Friend(User& myUser) const {
     }
     
     string ssize;
-    
-    
+    recvMsg(fd, ssize);
+    off_t size = stoll(ssize);
 
-        recvMsg(fd, ssize);
-        off_t size = stoll(ssize);
-
-         thread recvfileThread([=]() {
+    thread recvfileThread([=]() {
     this->recvFileThread(fd, fileName, size, filePath);
 });
     // 分离线程，避免阻塞
@@ -249,9 +246,14 @@ void  FileTransfer::recvFileThread(int fd, string fileName,  off_t size, string 
 
 
 // 群聊发送文件
-void FileTransfer::sendFile_Group(int fd, const Group& targetGroup, const User& myUser) const {
+void FileTransfer::sendFile_Group( const Group& targetGroup, const User& myUser) const {
     // 发送群文件传输协议
+     int fd = Socket();
+    Connect(fd, IP, PORT);
     sendMsg(fd, SENDFILE_G);
+
+    User userCopy = myUser;
+    sendMsg(fd, userCopy.to_json());
 
     // 创建Group副本来调用to_json
     Group groupCopy = targetGroup;
@@ -292,107 +294,152 @@ void FileTransfer::sendFile_Group(int fd, const Group& targetGroup, const User& 
             continue;
         }
 
-        sendMsg(fd, filePath);
-        filesystem::path path(filePath);
-        string fileName = path.filename().string();
-
-        sendMsg(fd, fileName);
+       
         break;
     }
+    
+     sendMsg(fd, filePath);
+    filesystem::path path(filePath);
+    string fileName = path.filename().string();
+    sendMsg(fd, fileName);
 
     off_t fileSize = fileStat.st_size;
-    sendMsg(fd, to_string(fileSize));
 
-    cout << "开始发送文件" << endl;
-    ssize_t bytesSent = sendfile(fd, inputFile, &offset, fileSize);
-    system("sync");
 
-    if (bytesSent == -1) {
-        cerr << "传输文件失败" << endl;
-        close(inputFile);
-        return;
-    }
+     thread G_sendfileThread([=]() {
+    this->G_sendFileThread(fd, targetGroup, myUser, inputFile, fileSize, offset, filePath);
+});
+G_sendfileThread.detach();
 
-    close(inputFile);
-
-    // 创建文件传输消息记录
-    string fileName = filePath.substr(filePath.find_last_of("/\\") + 1);
-
-    cout << "你：[文件]" << fileName  << endl;
-    cout << "成功给群聊" << targetGroup.getGroupName() << "发送了文件: " << fileName << endl;
-    cout << "\033[90m可以继续聊天（输入消息后按enter发送）\033[0m" << endl;
+    
 }
 
-// 群聊接收文件
-void FileTransfer::recvFile_Group(int fd, const User& myUser) const {
-    sendMsg(fd, RECVFILE_G);
-    string nums;
+void FileTransfer::G_sendFileThread(int fd,const Group& targetUser, const User& myUser, int inputFile, off_t fileSize, off_t offset,string filePath) const{
 
+   sendMsg(fd, to_string(fileSize));
+cout << "文件大小: " << fileSize << endl;
+
+    ssize_t totalSent = 0;
+    while (totalSent < fileSize) {
+        ssize_t n = sendfile(fd, inputFile, &offset, fileSize - totalSent);
+        if (n == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(1000); // 或用 epoll 写事件更优雅
+                continue;
+            }
+            perror("sendfile failed");
+            sendMsg(fd, "no");
+            close(inputFile);
+            close(fd);
+            return;
+        }
+        totalSent += n;
+    }
+
+    system("sync");
+    
+    string result ;
+    recvMsg(fd, result);
+    if (result == "no") {
+        cerr << "服务器写入文件失败，请稍后重试" << endl;
+        close(inputFile);
+        close(fd);
+        return;
+    }
+    filesystem::path path(filePath);
+     string fileName = path.filename().string();
+    cout << "文件" << fileName << "发送完成" << endl;
+    close(inputFile);
+    close(fd);
+
+}
+// 群聊接收文件
+void FileTransfer::recvFile_Group( const User& myUser,string G_uid) const {
+    int fd = Socket();
+    Connect(fd, IP, PORT);
+    sendMsg(fd, RECVFILE_G);
+
+    User userCopy = myUser;
+    sendMsg(fd, userCopy.to_json());
+    
+    string nums;
+    sendMsg(fd, G_uid);
     recvMsg(fd, nums);
     int num = stoi(nums);
 
     if (num == 0) {
         cout << "暂无群聊文件可接收" << endl;
+        close(fd);
         return;
     }
 
     cout << "你有" << num << "个群聊文件待接收" << endl;
 
-    for (int i = 0; i < num; i++) {
-        Message message;
-        string file_info;
-        recvMsg(fd, file_info);
-        message.json_parse(file_info);
+    Message message;
+    string file_info;
+    recvMsg(fd, file_info);
+    message.json_parse(file_info);
 
-        // 从content中提取文件名（去掉路径前缀）
-        string fullPath = message.getContent();
-        string fileName = fullPath.substr(fullPath.find_last_of("/\\") + 1);
-        cout << "你收到" << message.getUsername() << "的文件: " << fileName << endl;
-        cout << "是否要接收[1]YES, [0]NO" << endl;
+    // 从content中提取文件名（去掉路径前缀）
+    string fullPath = message.getContent();
+    string fileName = fullPath.substr(fullPath.find_last_of("/\\") + 1);
+    cout << "你收到" << message.getUsername() << "的文件: " << fileName << endl;
+    cout << "是否要接收[1]YES, [0]NO" << endl;
 
-        int choice;
-        while (!(cin >> choice) || (choice != 0 && choice != 1)) {
-            cout << "输入格式错误" << endl;
-            cin.clear();
-            cin.ignore(INT32_MAX, '\n');
-        }
+    int choice;
+    while (!(cin >> choice) || (choice != 0 && choice != 1)) {
+        cout << "输入格式错误" << endl;
+        cin.clear();
         cin.ignore(INT32_MAX, '\n');
-
-        string reply = (choice == 1) ? "YES" : "NO";
-        sendMsg(fd, reply);
-
-        if (choice == 0) {
-            cout << "你拒绝接收了该文件" << endl;
-            continue;
-        }
-
-        // 接收文件 - 使用之前提取的fileName
-        string filePath = "./fileBuffer_recv/" + fileName;
-
-        if (!filesystem::exists("./fileBuffer_recv")) {
-            filesystem::create_directories("./fileBuffer_recv");
-        }
-
-        ofstream ofs(filePath, ios::binary);
-        string ssize;
-        recvMsg(fd, ssize);
-
-        off_t size = stoll(ssize);
-        int n;
-        char buf[BUFSIZ];
-
-        while (size > 0) {
-            if (size > sizeof(buf)) {
-                n = read_n(fd, buf, sizeof(buf));
-            } else {
-                n = read_n(fd, buf, size);
-            }
-            size -= n;
-            ofs.write(buf, n);
-        }
-        cout << "文件接收完成" << endl;
-        cout << "\033[90m可以继续聊天（输入消息后按enter发送）\033[0m" << endl;
-        ofs.close();
-       
     }
+    cin.ignore(INT32_MAX, '\n');
+
+    string reply = (choice == 1) ? "YES" : "NO";
+    sendMsg(fd, reply);
+
+    if (choice == 0) {
+        cout << "你拒绝接收了该文件" << endl;
+        close(fd);
+        return;
+    }
+
+    // 接收文件 - 使用之前提取的fileName
+    string filePath = "./fileBuffer_recv/" + fileName;
+
+    if (!filesystem::exists("./fileBuffer_recv")) {
+        filesystem::create_directories("./fileBuffer_recv");
+    }
+
+    string ssize;
+    recvMsg(fd, ssize);
+
+    off_t size = stoll(ssize);
+    
+    thread recvfileThread([=]() {
+    this->recvFileThread(fd, fileName, size, filePath);
+});
+    // 分离线程，避免阻塞
+    recvfileThread.detach(); 
+    
 }
+
+ void  FileTransfer::G_recvFileThread(int fd, string fileName,  off_t size, string filePath)const{
+    int n;
+    char buf[BUFSIZ];
+    ofstream ofs(filePath, ios::binary);
+
+    while (size > 0) {
+        if (size > sizeof(buf)) {
+            n = read_n(fd, buf, sizeof(buf));
+        } else {
+            n = read_n(fd, buf, size);
+        }
+        size -= n;
+        ofs.write(buf, n);
+    }
+    cout << "文件 " << fileName << "接收完成" ;
+
+    ofs.close();
+    close(fd);
+ }
+

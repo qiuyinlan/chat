@@ -43,34 +43,34 @@ void hearbeat(int epfd,int fd){
 
     int receiver_fd;
     string UID;
-    recvMsg(fd, UID);
-    if (redis.hexists("unified_receiver", UID)) {
-                string receiver_fd_str = redis.hget("unified_receiver", UID);
-                int receiver_fd = stoi(receiver_fd_str);
-                
-            }
-
-
-    // 给 socket 设置了接收数据的最大阻塞时间为 20 秒
+   
+    // 给 socket 设置了接收数据的最大阻塞时间为  秒
     struct timeval timeout;
-    timeout.tv_sec = 20;//s
+    timeout.tv_sec = 40;//s
     timeout.tv_usec = 0;//ms
-    setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, (char *)&timeout, sizeof(timeout));
+    if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+    perror("setsockopt failed");
+}
 
+    char buf[1024]; 
     while (true) {
         string buf;
         int len = recvMsg(fd, buf);
+        int err = errno; 
+        if (len <= 0) {
+            if (err == EWOULDBLOCK || err == EAGAIN || err == EINTR || err == ETIMEDOUT) {//可能阻塞了，但是还是活着
+            cout << "[超时] fd=" << fd << " 40秒无数据，断开" << endl;
+            }else {
+                cout << "[ERROR] 心跳检测接收失败，fd=" << fd << " 连接断开" << endl;
+            }
+            break;
+        }
+        
         if (buf == "HEARTBEAT") {
-            cout << RED << "心跳" << RESET << endl;
-        } else if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR || errno == ETIMEDOUT) {//可能阻塞了，但是还是活着
-            cout << "[超时] fd=" << fd << " 20秒无数据，断开" << endl;
-            break;
-        } else if (len <= 0) {
-            cout << "[ERROR] 心跳检测接收失败，fd=" << fd << " 连接断开" << endl;
-            break;
+            cout << RED << fd << "心跳" << RESET << endl;
         } 
     }
-    close(receiver_fd);
+    
     close(fd);
 
 
@@ -199,10 +199,10 @@ int main(int argc, char *argv[]) {
                     pool.addTask([=](){ recvFile_Friend(epfd, fd); });
                 } else if (msg == SENDFILE_G) {
                     epoll_ctl(epfd, EPOLL_CTL_DEL, ep[i].data.fd, nullptr);
-                    pool.addTask([=](){ handleUnifiedReceiver(epfd, fd); });
+                    pool.addTask([=](){ sendFile_Group(epfd, fd); });
                 } else if (msg == RECVFILE_G) {
                     epoll_ctl(epfd, EPOLL_CTL_DEL, ep[i].data.fd, nullptr);
-                    pool.addTask([=](){ handleUnifiedReceiver(epfd, fd); });
+                    pool.addTask([=](){ recvFile_Group(epfd, fd); });
                 }
                 //正常请求
                 else if (msg == REQUEST_CODE) {

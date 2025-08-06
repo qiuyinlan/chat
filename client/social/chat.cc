@@ -75,10 +75,10 @@ void ChatSession::startGroupChat(int groupIndex, const vector<Group>& joinedGrou
         }
         
        
-        if (historyMsg.empty()) {
-            continue;
-        }
-        //消息不显示！！！
+        // if (historyMsg.empty()) {
+        //     continue;
+        // }
+        // //消息不显示！！！
         message.json_parse(historyMsg);
         if (message.getTime() < timestamp) {
             // 如果消息时间戳小于指定时间戳，则跳过该消息
@@ -127,19 +127,22 @@ void ChatSession::startGroupChat(int groupIndex, const vector<Group>& joinedGrou
             FileTransfer fileTransfer;
             //thread fileSender(&FileTransfer::sendFile_Group, &fileTransfer, fd, selectedGroup, user);
             
-             fileTransfer.sendFile_Group(fd, selectedGroup, user);
+             fileTransfer.sendFile_Group( selectedGroup, user);
+              cout << "服务器正在处理，可以继续聊天（输入消息后按enter发送）" << endl;
             continue;
         }
         if (msg == "recv") {
+            string G_uid = selectedGroup.getGroupUid() ;
             FileTransfer fileTransfer;
-            fileTransfer.recvFile_Group(fd, user);
+            fileTransfer.recvFile_Group( user,G_uid);
+             cout << "服务器正在处理，可以继续聊天（输入消息后按enter发送）" << endl;
             continue;
         }
 
-        if (msg.empty()) {
-            cout << "不能发送空白消息" << endl;
-            continue;
-        }
+        // if (msg.empty()) {
+        //     cout << "不能发送空白消息" << endl;
+        //     continue;
+        // }
         
         cout << "你：" << msg << endl;
         message.setContent(msg);
@@ -278,10 +281,10 @@ void ChatSession::startChat(vector<pair<string, User>> &my_friends,vector<Group>
                 cout << "接收历史消息失败，停止接收" << endl;
                 break;
             }
-                //###待完善：空的消息，可以发和接收，但是不打印在历史记录里面
-                if (history_message.empty()) {
-                    continue;
-                }
+                // //###待完善：空的消息，可以发和接收，但是不打印在历史记录里面
+                // if (history_message.empty()) {
+                //     continue;
+                // }
 
                 history.json_parse(history_message);
                 if (history.getUsername() == user.getUsername()) {
@@ -333,20 +336,20 @@ void ChatSession::startChat(vector<pair<string, User>> &my_friends,vector<Group>
                 // fileSender.detach();
                  fileTransfer.sendFile_Friend(my_friends[who-1].second, user);
                 
-                 cout << "\033[90m可以继续聊天（输入消息后按enter发送）\033[0m" << endl;
+                 cout << "服务器正在处理，可以继续聊天（输入消息后按enter发送）" << endl;
     
                 continue;
             }
             if(msg == "recv"){
                 FileTransfer fileTransfer;
                 fileTransfer.recvFile_Friend( user);
-                cout << "\033[90m可以继续聊天（输入消息后按enter发送）\033[0m" << endl;
+                cout << "服务器正在处理，可以继续聊天（输入消息后按enter发送）" << endl;
                 continue;
             }
-            else if(msg.empty()){
-                cout << "不能发送空白消息" << endl;
-                continue;
-            }
+            // else if(msg.empty()){
+            //     cout << "不能发送空白消息" << endl;
+            //     continue;
+            // }
             message.setContent(msg);
             json = message.to_json();
 

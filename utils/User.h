@@ -37,7 +37,7 @@ public:
 
     string to_json();
 
-    //bug 参数里不能加&
+    
     void json_parse(const string &json);
 
 private:

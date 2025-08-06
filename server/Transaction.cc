@@ -105,7 +105,7 @@ void start_chat(int fd, User &user) {
             return;
         }
         //正常消息
-        cout << "[DEBUG] 尝试解析为JSON消息: " << msg << endl;
+        
         Message message;
         try {
             message.json_parse(msg);
@@ -387,9 +387,8 @@ void unblocked(int fd, User &user) {
         }
 
         recvMsg(fd, fileName);
-        cout << "传输文件名: " << fileName << endl;
-        filePath = "./fileBuffer_send/" + fileName;
-
+    
+    ///////////////////////////////////////////线程///////////////////
         //接收好友对象
         string friend_info;
         User _friend;
@@ -410,7 +409,15 @@ void unblocked(int fd, User &user) {
         }
         user.json_parse(my_info);
 
+        //文件名加时间戳防重复
+         size_t dotPos = fileName.rfind('.');
+         string name = fileName.substr(0, dotPos);
+        string ext = fileName.substr(dotPos);
+        fileName = name + "_" + user.get_time() + ext;
 
+
+        cout << "传输文件名: " << fileName << endl;
+        filePath = "./fileBuffer_send/" + fileName;
 
        
         //最后一个groupName填了文件名，接收的时候会显示
@@ -462,8 +469,7 @@ void unblocked(int fd, User &user) {
         }
 
         sendMsg(fd, "ok");
-        //文件发送实时通知缓冲区
-        redis.sadd("file" + _friend.getUID(), user.getUsername());
+        
         
 
         // 创建文件消息并保存到聊天历史记录
@@ -471,11 +477,11 @@ void unblocked(int fd, User &user) {
         fileMessage.setUidFrom(user.getUID());
         fileMessage.setUidTo(_friend.getUID());
         fileMessage.setUsername(user.getUsername());
-        fileMessage.setContent("[文件] " + fileName);
+        fileMessage.setContent("[文件]" + fileName);
         fileMessage.setGroupName("1");  // 私聊标识
 
         
-        // 保存到双方的聊天历史记录
+        // 保存到双方
         string senderHistory = user.getUID() + _friend.getUID();
         string receiverHistory = _friend.getUID() + user.getUID();
         string fileMessageJson = fileMessage.to_json();
@@ -509,7 +515,7 @@ void unblocked(int fd, User &user) {
                 fileMsg.setUidFrom(user.getUID());
                 fileMsg.setUidTo(_friend.getUID());
                 fileMsg.setUsername(user.getUsername());
-                fileMsg.setContent("[文件] " + fileName);
+                fileMsg.setContent("[文件]" + fileName);
                 fileMsg.setGroupName("1");  // 私聊标识
                 sendMsg(receiver_fd, fileMsg.to_json());
             } else {
@@ -626,31 +632,27 @@ void recvFile_Friend(int epfd, int fd) {
 
 
 // 群聊发送文件
-void sendFile_Group(int fd, User &user) {
-    cout << "[DEBUG] sendFile_Group 开始，用户: " << user.getUsername() << endl;
+void sendFile_Group(int epfd, int fd) {
     Redis redis;
     redis.connect();
-    string group_info;
+    //user
+    string user_info;
+    recvMsg(fd, user_info);
+    User user;
+    user.json_parse(user_info);
 
-    // 接收群聊信息
+    //group
+    string group_info;
     Group group;
     int ret = recvMsg(fd, group_info);
-    if (ret <= 0) {
-        cout << "[ERROR] 接收群聊信息失败" << endl;
-        redis.hdel("is_online", user.getUID());
-        return;
-    }
+   
 
-    cout << "[DEBUG] 接收到群聊信息: " << group_info << endl;
+    // cout << "[DEBUG] 接收到群聊信息: " << group_info << endl;
     group.json_parse(group_info);
     string filePath, fileName;
 
     ret = recvMsg(fd, filePath);
-    if (ret <= 0) {
-        cout << "[ERROR] 接收文件路径失败" << endl;
-        redis.hdel("is_online", user.getUID());
-        return;
-    }
+   
 
     cout << "[DEBUG] 接收到文件路径: " << filePath << endl;
 
@@ -661,16 +663,26 @@ void sendFile_Group(int fd, User &user) {
     }
 
     recvMsg(fd, fileName);
-    cout << "传输群聊文件名: " << fileName << endl;
-    filePath = "./fileBuffer_send/" + fileName;
+  
+    //文件名加时间戳防重复
+         size_t dotPos = fileName.rfind('.');
+         string name = fileName.substr(0, dotPos);
+        string ext = fileName.substr(dotPos);
+        fileName = name + "_" + user.get_time() + ext;
 
-    // 创建群聊文件消息
-    Message message(user.getUsername(), user.getUID(), group.getGroupUid(), group.getGroupName());
-    message.setContent("[文件] " + fileName);  // 文件路径存储在content中
 
+    
+
+    
     if (!filesystem::exists("./fileBuffer_send")) {
         filesystem::create_directories("./fileBuffer_send");
     }
+
+
+    // 创建接收的文件消息
+    filePath = "./fileBuffer_send/" + fileName;
+    Message filemessage(user.getUsername(), user.getUID(), group.getGroupUid(), group.getGroupName());
+    filemessage.setContent(filePath); 
 
     ofstream ofs(filePath, ios::binary);
     if (!ofs.is_open()) {
@@ -678,26 +690,43 @@ void sendFile_Group(int fd, User &user) {
         return;
     }
 
+
+//////////////////////////////线程/////////////////////////////
+
+
     string ssize;
     recvMsg(fd, ssize);
     off_t size = stoll(ssize);
+    cout << "[DEBUG] 接收到文件大小: " << size << endl;
     off_t sum = 0;
     int n;
     char buf[BUFSIZ];
 
     while (size > 0) {
         if (size > sizeof(buf)) {
-            n = read_n(fd, buf, sizeof(buf));
+                n = read_n(fd, buf, sizeof(buf));
         } else {
             n = read_n(fd, buf, size);
         }
-        if (n < 0) {
-            continue;
+        if (n <= 0) {
+            sendMsg(fd, "no");
+            cout << "读取文件失败" << endl;
+            return;
         }
+            cout << "剩余文件大小: " << size << endl; 
         size -= n;
         sum += n;
         ofs.write(buf, n);
+
+
     }
+
+    sendMsg(fd, "ok");
+
+
+    // 创建群聊文件消息
+    Message message(user.getUsername(), user.getUID(), group.getGroupUid(), group.getGroupName());
+    message.setContent("[文件]" + fileName);  // 文件路径存储在content中
 
     // 保存文件消息到群聊历史记录
     redis.lpush(group.getGroupUid() + "history", message.to_json());
@@ -706,11 +735,12 @@ void sendFile_Group(int fd, User &user) {
     redisReply **members = redis.smembers(group.getMembers());
     int memberCount = redis.scard(group.getMembers());
 
+
+    //注意，添加的是纯路径的消息
     for (int i = 0; i < memberCount; i++) {
         string memberUID = string(members[i]->str);
         if (memberUID != user.getUID()) {  // 不给发送者自己添加
-            redis.sadd("recv" + memberUID, message.to_json());
-            cout << "[DEBUG] 添加群聊文件到成员 " << memberUID << " 的接收队列" << endl;
+            redis.sadd("recv" + group.getGroupUid()+memberUID, filemessage.to_json());
         }
         freeReplyObject(members[i]);
     }
@@ -722,39 +752,39 @@ void sendFile_Group(int fd, User &user) {
         message.setUidTo(group.getGroupUid());
         redisReply **arr = redis.smembers(group.getMembers());
         string UIDto;
-    for (int i = 0; i < len; i++) {
-        UIDto = string(arr[i]->str);
-        
-        if (UIDto == user.getUID()) {
-            freeReplyObject(arr[i]);
-            continue;
-        }
-        //不在线
-        if (!redis.hexists("is_online", UIDto)) {
+        for (int i = 0; i < len; i++) {
+            UIDto = string(arr[i]->str);
             
-            redis.sadd(UIDto + "file_notify", group.getGroupName());
-            freeReplyObject(arr[i]);
-            continue;
-        }
-        //在线，不在群聊中，发送通知
-        if (!redis.sismember("group_chat", UIDto)) {
-            // 使用统一接收连接发送通知
+            if (UIDto == user.getUID()) {
+                freeReplyObject(arr[i]);
+                continue;
+            }
+            //不在线
+            if (!redis.hexists("is_online", UIDto)) {
+                
+                redis.sadd(UIDto + "file_notify", group.getGroupName());
+                freeReplyObject(arr[i]);
+                continue;
+            }
+            //在线，不在群聊中，发送通知
+            if (!redis.sismember("group_chat", UIDto)) {
+                // 使用统一接收连接发送通知
+                if (redis.hexists("unified_receiver", UIDto)) {
+                    string receiver_fd_str = redis.hget("unified_receiver", UIDto);
+                    int receiver_fd = stoi(receiver_fd_str);
+                    sendMsg(receiver_fd, "FILE:" + group.getGroupName());
+                }
+                freeReplyObject(arr[i]);
+                continue;
+            }
+            // 在群聊中，使用统一接收连接发送实时消息
             if (redis.hexists("unified_receiver", UIDto)) {
                 string receiver_fd_str = redis.hget("unified_receiver", UIDto);
                 int receiver_fd = stoi(receiver_fd_str);
-                sendMsg(receiver_fd, "MESSAGE:" + group.getGroupName());
+                sendMsg(receiver_fd, message.to_json());
             }
             freeReplyObject(arr[i]);
-            continue;
         }
-        // 在群聊中，使用统一接收连接发送实时消息
-        if (redis.hexists("unified_receiver", UIDto)) {
-            string receiver_fd_str = redis.hget("unified_receiver", UIDto);
-            int receiver_fd = stoi(receiver_fd_str);
-            sendMsg(receiver_fd, message.to_json());
-        }
-        freeReplyObject(arr[i]);
-    }
 
     cout << "[DEBUG] 群聊文件发送完成: " << fileName << endl;
     ofs.close();
@@ -763,14 +793,25 @@ void sendFile_Group(int fd, User &user) {
 
 
 // 群聊接收文件
-void recvFile_Group(int fd, User &user) {
-    cout << "[DEBUG] recvFile_Group 开始，用户: " << user.getUsername() << endl;
+void recvFile_Group(int epfd, int fd) {
+
+    
+    cout << "recvFile_Group开始" << endl;
+     string user_info;
+    recvMsg(fd, user_info);
+    User user;
+    user.json_parse(user_info);
+    
+    
     Redis redis;
     redis.connect();
 
+    string G_uid;
+    recvMsg(fd,G_uid);
+cout << "G_uid" << G_uid << endl;
     // 获取用户的群聊文件数量
-    int num = redis.scard("recv" + user.getUID());
-    cout << "[DEBUG] 用户 " << user.getUsername() << " 有 " << num << " 个群聊文件待接收" << endl;
+    int num = redis.scard("recv" + G_uid + user.getUID());
+    cout << "[DEBUG] 用户" << user.getUsername() << " 有 " << num << " 个群聊文件待接收" << endl;
 
     // 发送文件数量
     sendMsg(fd, to_string(num));
@@ -780,82 +821,75 @@ void recvFile_Group(int fd, User &user) {
         return;
     }
 
-    redisReply **arr = redis.smembers("recv" + user.getUID());
-    for (int i = 0; i < num; i++) {
-        sendMsg(fd, arr[i]->str);
+    redisReply **arr = redis.smembers("recv" + G_uid + user.getUID());
+    
+    sendMsg(fd, arr[0]->str);
 
-        Message message;
-        message.json_parse(arr[i]->str);
-        string path = message.getContent();
+    Message message;
+    message.json_parse(arr[0]->str);
+    string path = message.getContent();
 
-        cout << "[DEBUG] 尝试访问群聊文件路径: " << path << endl;
+    cout << "[DEBUG] 尝试访问群聊文件路径: " << path << endl;
 
-        struct stat info;
-        if (stat(path.c_str(), &info) == -1) {
-            cout << "[ERROR] 群聊文件不存在或无法访问: " << path << endl;
-            cout << "[ERROR] 错误原因: " << strerror(errno) << endl;
+    struct stat info;
+    if (stat(path.c_str(), &info) == -1) {
+        cout << "[ERROR] 群聊文件不存在或无法访问: " << path << endl;
+        cout << "[ERROR] 错误原因: " << strerror(errno) << endl;
 
-            // 跳过这个文件
-            redis.srem("recv" + user.getUID(), arr[i]->str);
-            freeReplyObject(arr[i]);
-            continue;
-        }
-
-        string reply;
-        cout << "[DEBUG] 等待客户端回复是否接收群聊文件..." << endl;
-        int _ret = recvMsg(fd, reply);
-        cout << "[DEBUG] 收到客户端回复: '" << reply << "'" << endl;
-
-        if (_ret <= 0) {
-            cout << "[ERROR] 接收客户端回复失败" << endl;
-            redis.hdel("is_online", user.getUID());
-            redis.srem("recv" + user.getUID(), arr[i]->str);
-            freeReplyObject(arr[i]);
-            continue;
-        }
-
-        if (reply == "NO") {
-            cout << "[DEBUG] 客户端拒绝接收群聊文件" << endl;
-            redis.srem("recv" + user.getUID(), arr[i]->str);
-            freeReplyObject(arr[i]);
-            continue;
-        }
-
-        if (reply != "YES") {
-            cout << "[ERROR] 收到意外的回复: " << reply << ", 跳过此群聊文件" << endl;
-            redis.srem("recv" + user.getUID(), arr[i]->str);
-            freeReplyObject(arr[i]);
-            continue;
-        }
-
-        cout << "[DEBUG] 客户端同意接收群聊文件，开始传输" << endl;
-
-        int fp = open(path.c_str(), O_RDONLY);
-        if (fp == -1) {
-            cout << "[ERROR] 无法打开群聊文件: " << path << endl;
-            redis.srem("recv" + user.getUID(), arr[i]->str);
-            freeReplyObject(arr[i]);
-            continue;
-        }
-
-        sendMsg(fd, to_string(info.st_size));
-        off_t ret;
-        off_t sum = info.st_size;
-
-        while (true) {
-            ret = sendfile(fd, fp, nullptr, info.st_size);
-            if (ret == 0) {
-                cout << "[DEBUG] 群聊文件传输成功" << endl;
-                break;
-            } else if (ret > 0) {
-                sum -= ret;
-            }
-        }
-
-        redis.srem("recv" + user.getUID(), arr[i]->str);
-        close(fp);
-        freeReplyObject(arr[i]);
+        // 跳过这个文件
+        redis.srem("recv" + G_uid + user.getUID(), arr[0]->str);
+        freeReplyObject(arr[0]);
+        return;
     }
+
+    string reply;
+    cout << "[DEBUG] 等待客户端回复是否接收群聊文件..." << endl;
+    int _ret = recvMsg(fd, reply);
+    cout << "[DEBUG] 收到客户端回复: '" << reply << "'" << endl;
+
+    if (_ret <= 0) {
+        cout << "[ERROR] 接收客户端回复失败" << endl;
+        redis.hdel("is_online", user.getUID());
+        redis.srem("recv" + G_uid + user.getUID(), arr[0]->str);
+        freeReplyObject(arr[0]);
+        return;
+    }
+
+    if (reply == "NO") {
+        cout << "[DEBUG] 客户端拒绝接收群聊文件" << endl;
+        redis.srem("recv" + G_uid + user.getUID(), arr[0]->str);
+        freeReplyObject(arr[0]);
+        return;
+    }
+
+    cout << "[DEBUG] 客户端同意接收群聊文件，开始传输" << endl;
+
+    int fp = open(path.c_str(), O_RDONLY);
+    if (fp == -1) {
+        cout << "[ERROR] 无法打开群聊文件: " << path << endl;
+        redis.srem("recv" + G_uid + user.getUID(), arr[0]->str);
+        freeReplyObject(arr[0]);
+        return;
+    }
+
+    sendMsg(fd, to_string(info.st_size));
+    off_t ret;
+    off_t sum = info.st_size;
+
+    while (true) {
+        ret = sendfile(fd, fp, nullptr, info.st_size);
+        if (ret == 0) {
+            cout << "[DEBUG] 群聊文件传输成功" << endl;
+            break;
+        } else if (ret > 0) {
+            sum -= ret;
+        }
+    }
+
+    redis.srem("recv" + G_uid + user.getUID(), arr[0]->str);
+    close(fp);
+    freeReplyObject(arr[0]);
+    
 }
 
 

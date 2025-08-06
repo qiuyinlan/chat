@@ -546,6 +546,8 @@ void G_chat::remove(Group &group) const {
     //接收服务器发送的群员数量
     recvMsg(fd, buf);
     int num = stoi(buf);
+
+    cout << YELLOW<< "-----------------------------------" << RESET << endl;
     for (int i = 0; i < num; i++) {
         //接收服务器发送的群员信息
         recvMsg(fd, buf);
@@ -557,9 +559,14 @@ void G_chat::remove(Group &group) const {
             cout << i + 1 << "." << member.getUsername() << endl;
         }
     }
+
+    cout << YELLOW<< "-----------------------------------" << RESET << endl;
+    cout << "tip:不能踢群主和自己哦" << endl;
+
+
     while (true) {
-        cout << "tip:不能踢群主和自己哦" << endl;
         cout << "你要踢谁" << endl;
+        return_last();
         int who;
         while (!(cin >> who) || who < 0 || who > (int)arr.size()) {
             if (cin.eof()) {
@@ -606,6 +613,8 @@ void G_chat::appointAdmin(Group &createdGroup) const {
     recvMsg(fd, nums);
     int num = stoi(nums);
     string member_info;
+
+    cout << YELLOW << "-----------------------------------" << RESET << endl;
     for (int i = 0; i < num; i++) {
 
         recvMsg(fd, member_info);
@@ -617,6 +626,8 @@ void G_chat::appointAdmin(Group &createdGroup) const {
             cout << i + 1 << ". " << member.getUsername() << endl;
         }
     }
+
+    cout << YELLOW << "-----------------------------------" << RESET << endl;
     int who;
     while (true) {
         cout << "你要任命谁为管理员" << endl;
