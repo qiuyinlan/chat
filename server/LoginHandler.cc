@@ -119,6 +119,7 @@ void serverLogin(int epfd, int fd) {
 //登陆后业务分发
 
 void serverOperation(int fd, User &user) {
+ 
     Redis redis;
     redis.connect();
     string temp;
@@ -171,6 +172,7 @@ void serverOperation(int fd, User &user) {
     }
     redis.hdel("is_online", user.getUID());
     redis.hdel("unified_receiver", user.getUID());  // 清理统一接收连接记录
+  
 }
 
 void notify(int fd, const string &UID) {//离线通知

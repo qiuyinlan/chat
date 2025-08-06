@@ -27,11 +27,14 @@ void signalHandler(int signum) {
     exit(signum);
 }
 
+// void start_UI() {
+//     cout << "[1]登录    [2]邮箱注册    [3]重置密码    [4]找回密码    [5]退出" << endl;
+//     cout << "请输入你的选择" << endl;
+// }
 void start_UI() {
-    cout << "[1]登录    [2]邮箱注册    [3]重置密码    [4]找回密码    [5]退出" << endl;
+    cout << "[1]登录    [2]邮箱注册    [0]退出" << endl;
     cout << "请输入你的选择" << endl;
 }
-
 
 int main(int argc, char *argv[]) {
     if (argc == 1) {
@@ -56,11 +59,19 @@ int main(int argc, char *argv[]) {
             cout << "输入为空！" << endl;
             continue;
         }
-        if (option != "1" && option != "2" && option != "3" && option != "4" && option != "5") {
+        // if (option != "1" && option != "2" && option != "3" && option != "4" && option != "5") {
+        //     cout << "没有这个选项！" << endl;
+        //     continue;
+        // }
+         if (option != "1" && option != "2" &&  option != "0") {
             cout << "没有这个选项！" << endl;
             continue;
         }
-        if (option == "5") {
+        // if (option == "5") {
+        //     cout << "退出成功" << endl;
+        //     break;
+        // }
+        if (option == "0") {
             cout << "退出成功" << endl;
             break;
         }

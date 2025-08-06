@@ -51,8 +51,7 @@ void hearbeat(int epfd,int fd){
     if (setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
     perror("setsockopt failed");
 }
-
-    char buf[1024]; 
+string buf;
     while (true) {
         string buf;
         int len = recvMsg(fd, buf);
@@ -72,7 +71,6 @@ void hearbeat(int epfd,int fd){
     }
     
     close(fd);
-
 
 }
 int main(int argc, char *argv[]) {
@@ -136,7 +134,7 @@ int main(int argc, char *argv[]) {
 
                 //accept
                 int connfd = Accept(listenfd, (struct sockaddr *) &cli_addr, &cli_len);
-
+                
 
                 cout << "received from " << inet_ntop(AF_INET, &cli_addr.sin_addr.s_addr, str, sizeof(str))
                      << " at port " << ntohs(cli_addr.sin_port) << endl;

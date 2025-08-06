@@ -83,6 +83,7 @@ void clientOperation(int fd, User &user) {
     
 
     thread heartbeatThread(heartbeat, user.getUID());
+    heartbeatThread.detach();
     thread unifiedRecver(unifiedMessageReceiver, user.getUID());
     unifiedRecver.detach();
 
