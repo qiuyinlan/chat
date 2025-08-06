@@ -24,6 +24,7 @@ void G_chat::groupMenu() {
 
 }
 
+
 void G_chat::groupctrl(vector<pair<string, User>> &my_friends) {
     sendMsg(fd, GROUP);
     vector<Group> joinedGroup;
@@ -462,6 +463,9 @@ void G_chat::managed_Group(vector<Group> &managedGroup) const {
             } else if (choice == 5) {
                 deleteGroup(managedGroup[which]);
                 break;
+            } 
+             else if (choice == 6) {
+               // getperson()
             }
         }
 
@@ -841,4 +845,31 @@ void G_chat::quit(vector<Group> &joinedGroup) {
         cout << "读到文件结尾" << endl;
         return;
     }
+}
+
+ void G_chat::getperson(){
+    sendMsg(fd,"6");
+    cout << "请输入你要添加的好友序号" << endl;
+    return_last();
+    string name;
+    getline(cin, name);
+   
+
+    sendMsg(fd,name);
+
+    string reply;
+    recvMsg(fd,reply);
+    
+    if(reply == "1"){
+        cout << "添加成功" << endl;
+    }
+    else if (reply == "2") {
+        cout << "该好友已经在群聊中，不能重复添加" << endl;
+    }
+    else if (reply == "3") {
+        cout << "TA不是你的好友" << endl;
+    }
+    // else if (reply == "4"){
+    //     cout << "添加失败" << endl;
+    // }
 }

@@ -71,6 +71,10 @@ void start_chat(int fd, User &user) {
     recvMsg(fd, records_index);
     int num = redis.llen(records_index);
     //发
+    if (num > 30) {
+        num = 30;
+    }
+    
     sendMsg(fd, to_string(num));
 
     redisReply **arr = redis.lrange(records_index, "0", to_string(num - 1));

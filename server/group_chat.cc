@@ -198,6 +198,10 @@ void GroupChat::startChat() {
         return;
     }
     int num = redis.llen(group.getGroupUid() + "history");
+
+    if (num > 30) {
+        num = 30;
+    }
     
     sendMsg(fd, to_string(num));
 

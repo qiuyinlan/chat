@@ -52,6 +52,8 @@ public:
 
     void quit(std::vector<Group> &);
 
+    void getperson();
+
   
 private:
     int fd;
