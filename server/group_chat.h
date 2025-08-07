@@ -45,6 +45,7 @@ public:
 
     void quit();
 
+    void getperson();
 private:
     int fd;
     User user;

@@ -36,7 +36,7 @@ void signalHandler(int signum) {
     
 }
 
-
+//超时，映射
 void hearbeat(int epfd,int fd){
     Redis redis;
     redis.connect();
@@ -135,6 +135,7 @@ int main(int argc, char *argv[]) {
                 //accept
                 int connfd = Accept(listenfd, (struct sockaddr *) &cli_addr, &cli_len);
                 
+
 
                 cout << "received from " << inet_ntop(AF_INET, &cli_addr.sin_addr.s_addr, str, sizeof(str))
                      << " at port " << ntohs(cli_addr.sin_port) << endl;

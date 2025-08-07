@@ -3,6 +3,7 @@
 #include <vector>
 #include "User.h"
 #include "Group.h"
+
 class G_chat {
 public:
 
@@ -15,7 +16,7 @@ public:
    
     void groupctrl(std::vector<std::pair<std::string, User>> &my_friends) ;
 
-    void groupList(const std::vector<Group> &joinedGroup);
+   // void groupList(const std::vector<Group> &joinedGroup);
 
     void groupMenu();
 
@@ -50,9 +51,9 @@ public:
 
     void showMembers(std::vector<Group> &group);
 
-    void quit(std::vector<Group> &);
+    void quit(std::vector<Group> &group);
 
-    void getperson();
+    void getperson(std::vector<Group> &group);
 
   
 private:

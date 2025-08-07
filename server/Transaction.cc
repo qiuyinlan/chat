@@ -71,8 +71,8 @@ void start_chat(int fd, User &user) {
     recvMsg(fd, records_index);
     int num = redis.llen(records_index);
     //发
-    if (num > 30) {
-        num = 30;
+    if (num > 50) {
+        num = 50;
     }
     
     sendMsg(fd, to_string(num));
@@ -230,28 +230,26 @@ void add_friend(int fd, User &user) {
         return;
     }
     cout << "[DEBUG] 添加好友请求: " << user.getUsername() << " 想添加 " << username << endl;
-
-    if (!redis.hexists("username_to_uid", username)) {
-        sendMsg(fd, "-1"); // 用户不存在
+    
+    // if (!redis.hexists("username_to_uid", username)) {
+    //     sendMsg(fd, "-1"); // 用户不存在
+    //     return;
+    // }
+    string UID = redis.hget("username_to_uid", username);
+    if (redis.sismember("deactivated_users", UID)) {
+        sendMsg(fd, "-6"); // 已注销，无法添加
         return;
     }
-    string UID = redis.hget("username_to_uid", username);
     if (!redis.hexists("user_info", UID)) {
         sendMsg(fd, "-1");
         return;
     } else if (redis.sismember(user.getUID(), UID) && redis.sismember(UID, user.getUID())) {
-        sendMsg(fd, "-2"); // 双方都互为好友才算已经是好友
+        sendMsg(fd, "-2"); // 双方都互为好友才算已经是好友,无法添加
         return;
     } else if (UID == user.getUID()) {
         sendMsg(fd, "-3");
         return;
     }
-
-    if (redis.sismember("deactivated_users", UID)) {
-        sendMsg(fd, "-6"); // 已注销，无法添加
-        return;
-    }
-
     if (redis.sismember(UID + "add_friend", user.getUID())) {
         sendMsg(fd, "-5"); // 已经发送过申请，等待对方处理
         return;

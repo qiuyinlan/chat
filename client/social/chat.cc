@@ -180,7 +180,7 @@ void ChatSession::startChat(vector<pair<string, User>> &my_friends,vector<Group>
             if (is_online == "1") {
                 cout << GREEN << i + 1 << ". " << my_friends[i].second.getUsername() <<  " (在线)" << RESET << endl;
             } else {
-                cout << i + 1 << ". " << my_friends[i].second.getUsername() << " " << my_friends[i].second.getUID() << " (离线)" << endl;
+                cout << i + 1 << ". " << my_friends[i].second.getUsername()  << " (离线)" << endl;
             }
         }
     }
@@ -200,7 +200,7 @@ void ChatSession::startChat(vector<pair<string, User>> &my_friends,vector<Group>
     int totalOptions = my_friends.size() + joinedGroup.size();
     
     if (totalOptions == 0) {
-        cout << "没有可聊天的对象，按任意键返回" << endl;
+        cout << "没有可聊天的对象，按enter返回" << endl;
         string temp;
         getline(cin, temp);
         return;
@@ -212,28 +212,25 @@ void ChatSession::startChat(vector<pair<string, User>> &my_friends,vector<Group>
     int who;
     while (true) {
         if (!(cin >> who)) {
-            // 输入错误处理
             cout << "输入格式错误，请输入数字" << endl;
-            cin.clear();  // 清除错误状态
-            cin.ignore(INT32_MAX, '\n');  // 忽略错误输入
+            cin.clear();  // 清错误状态
+            cin.ignore(INT32_MAX, '\n');  
             continue;
         }
 
         if (who == 0) {
-            //不需要发，直接return即可
             cin.ignore(INT32_MAX, '\n');
-            return;  // 用户选择退出
+            return;  
         }
         else if (who < 1 || who > totalOptions) {
             cout << "输入格式错误，请输入1-" << totalOptions << "之间的数字" << endl;
             continue;
         }
         
-        // 有效选择，退出循环
         break;
     }
 
-    // 清理输入缓冲区，确保没有残留字符
+    // 清输入缓冲区
     cin.ignore(INT32_MAX, '\n');
 
     // 根据选择分发到不同的聊天函数

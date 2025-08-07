@@ -68,7 +68,7 @@ void FriendManager::findRequest(vector<pair<string, User>> &my_friends) const {
     int num = stoi(nums);
     if (num == 0) {
         string temp;
-        cout << "目前没有好友申请，按任意键退出" << endl;
+        cout << "目前没有好友申请，按enter返回" << endl;
         getline(cin, temp);
         if (cin.eof()) {
             cout << "读到文件结尾" << endl;
@@ -116,7 +116,7 @@ void FriendManager::findRequest(vector<pair<string, User>> &my_friends) const {
 void FriendManager::delFriend(vector<pair<string, User>> &my_friends) {
     string temp;
     if (my_friends.empty()) {
-        cout << "你当前没有好友捏... 请按任意键退出" << endl;
+        cout << "你当前没有好友捏... 请按enter返回" << endl;
         getline(cin, temp);
         if (cin.eof()) {
             cout << "读到文件结尾" << endl;
@@ -139,13 +139,11 @@ void FriendManager::delFriend(vector<pair<string, User>> &my_friends) {
             return;
         }
 
-        // 检查输入是否为空
         if (del.empty()) {
             cout << "输入不能为空，请重新输入" << endl;
             continue;
         }
 
-        // 将字符串转换为整数
         int who;
         try {
             who = stoi(del);
@@ -154,7 +152,6 @@ void FriendManager::delFriend(vector<pair<string, User>> &my_friends) {
             continue;
         }
 
-        // 检查范围
         if (who < 1 || who > my_friends.size()) {
             cout << "输入超出范围，请输入1-" << my_friends.size() << "之间的数字" << endl;
             continue;
@@ -162,19 +159,19 @@ void FriendManager::delFriend(vector<pair<string, User>> &my_friends) {
 
         //向服务器发送删除好友的信号
         sendMsg(fd, DEL_FRIEND);
-        //发送删除好友的UID
-        who--;  // 转换为0基索引
+        
+        who--;  
         sendMsg(fd, my_friends[who].second.getUID());
 
         cout << "已删除好友 " << my_friends[who].second.getUsername() << endl;
-        break;  // 发送完请求后退出循环
+        break;  
     }
 }
 
 void FriendManager::blockedLists(vector<pair<string, User>> &my_friends) const {
     string temp;
     if (my_friends.empty()) {
-        cout << "你当前没有好友捏... 请按任意键退出" << endl;
+        cout << "你当前没有好友捏... 请按enter返回" << endl;
         getline(cin, temp);
         if (cin.eof()) {
             cout << "读到文件结尾" << endl;
@@ -209,7 +206,7 @@ void FriendManager::blockedLists(vector<pair<string, User>> &my_friends) const {
     sendMsg(fd, BLOCKED_LISTS);
     who--;
     sendMsg(fd, my_friends[who].second.getUID());
-    cout << "你已成功屏蔽" << my_friends[who].second.getUsername() << ", 按任意键退出" << endl;
+    cout << "你已成功屏蔽" << my_friends[who].second.getUsername() << ", 按enter返回" << endl;
     getline(cin, temp);
     if (cin.eof()) {
         cout << "读到文件结尾" << endl;
@@ -226,7 +223,7 @@ void FriendManager::unblocked(vector<pair<string, User>> &my_friends) const {
     if (num == 0) {
         string temp;
         cout << "你的屏蔽列表为空" << endl;
-        cout << "请按任意键退出" << endl;
+        cout << "请按enter返回" << endl;
         getline(cin, temp);
         if (cin.eof()) {
             cout << "读到文件结尾" << endl;
@@ -264,7 +261,7 @@ void FriendManager::unblocked(vector<pair<string, User>> &my_friends) const {
     //向服务器发送解除屏蔽的UID
     who--;
     sendMsg(fd, blocked_users[who].getUID());
-    cout << "你已经成功解除了对" << blocked_users[who].getUsername() << "的屏蔽，请按任意键退出" << endl;
+    cout << "你已经成功解除了对" << blocked_users[who].getUsername() << "的屏蔽，请按enter返回" << endl;
     getline(cin, blocked_info);
     if (cin.eof()) {
         cout << "读到文件结尾" << endl;

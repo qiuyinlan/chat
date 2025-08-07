@@ -199,7 +199,7 @@ void FileTransfer::recvFile_Friend(User& myUser) const {
     sendMsg(fd, reply);
     if (choice == 0) {
         string temp;
-        cout << "你拒绝接收了该文件, 按任意键返回" << endl;
+        cout << "你拒绝接收了该文件, 按enter返回" << endl;
         getline(cin, temp);
         close(fd);
         return;

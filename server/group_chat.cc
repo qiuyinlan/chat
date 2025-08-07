@@ -55,7 +55,10 @@ void GroupChat::group(int fd, User &user) {
             } else if (option == 5) {
                 groupChat.quit();
                 continue;
-            } else {
+            } else if (option == 6 ) {
+                groupChat.getperson();
+                continue;
+            }else {
                 // 处理无效选项，这里选择继续循环等待有效输入
                 std::cout << "[DEBUG] 无效选择: " << option << "，继续等待有效输入" << std::endl;
                 continue;
@@ -199,8 +202,8 @@ void GroupChat::startChat() {
     }
     int num = redis.llen(group.getGroupUid() + "history");
 
-    if (num > 30) {
-        num = 30;
+    if (num > 50) {
+        num = 50;
     }
     
     sendMsg(fd, to_string(num));
@@ -719,4 +722,55 @@ void GroupChat::quit() {
     redis.srem("managed" + user.getUID(), group.getGroupUid());
     redis.srem(group.getMembers(), user.getUID());
     redis.srem(group.getAdmins(), user.getUID());
+}
+
+void GroupChat::getperson(){
+    Redis redis;
+    redis.connect();
+    string name,UID,userUID,group_info;
+
+    recvMsg(fd,userUID);
+    recvMsg(fd,group_info);
+    
+    if (group_info == "0") {
+        return;
+    }
+    Group group;
+    group.json_parse(group_info);
+    //首先就得是好友，其次好友中已经注销的和悄悄被删掉的no，已经加入的也no,不能拉自己
+    while (true) {
+        recvMsg(fd, name);
+        UID = redis.hget("username_to_uid", name);
+        if (name == "0") {
+            return;
+        }
+        if (UID == userUID) {
+            sendMsg(fd, "-4"); // 不能拉自己
+            continue;
+        }
+        if (!redis.sismember(userUID, UID)) {
+            sendMsg(fd, "-1"); 
+            continue;
+        }
+        if (!redis.sismember(UID, userUID)){
+            sendMsg(fd, "-1"); 
+            continue;
+        }
+        else if (redis.sismember("deactivated_users", UID)) {
+            sendMsg(fd, "-3"); // 已注销，无法添加
+            continue;
+         }
+        else if (redis.sismember(group.getMembers(), UID)) {
+            sendMsg(fd, "-2"); // 已加入，无法重复添加
+            continue;
+         }
+         break;
+
+    }
+        sendMsg(fd, "1");
+        cout << "好友添加成功" << endl;
+        redis.hset("user_join_time", group.getGroupUid()+UID, user.get_time());
+        redis.sadd("joined" + UID, group.getGroupUid());
+        redis.sadd(group.getMembers(), UID);
+        
 }
